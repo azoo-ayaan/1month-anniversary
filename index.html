@@ -1150,8 +1150,9 @@ async function loadFromSupabase(){
     }
 
     // photos + captions into carousel
-    if(d.photos)window._carousel.photos=d.photos.map(p=>p||null);
-    if(d.captions)window._carousel.captions=d.captions;
+    console.log('Supabase loaded:', d);
+    if(d.photos&&d.photos.length)window._carousel.photos=d.photos.map(p=>p||null);
+    if(d.captions&&d.captions.length)window._carousel.captions=d.captions;
     window._carousel.buildCarousel();
   }catch(e){console.warn('Supabase load failed',e);}
 }
@@ -1166,8 +1167,15 @@ async function saveToSupabase(data){
   }catch(e){console.warn('Supabase save failed',e);}
 }
 
-// Load on page start (after carousel is built)
-window.addEventListener('load',()=>setTimeout(loadFromSupabase,100));
+// Load on page start — wait until _carousel is ready
+function waitAndLoad(){
+  if(window._carousel&&window._carousel.buildCarousel){
+    loadFromSupabase();
+  } else {
+    setTimeout(waitAndLoad,50);
+  }
+}
+window.addEventListener('load',waitAndLoad);
 
 // ── ADMIN ──
 (function(){
