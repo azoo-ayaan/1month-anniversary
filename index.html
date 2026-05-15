@@ -1116,7 +1116,9 @@ You mean everything to me.</textarea>
   // expose to admin
   window._carousel={
     get photos(){return photos;},
+    set photos(v){photos=v;},
     get captions(){return captions;},
+    set captions(v){captions=v;},
     buildCarousel,
     goTo
   };
