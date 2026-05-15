@@ -1224,14 +1224,14 @@ You mean everything to me.</textarea>
     buildPhotoSlots();
   }
 
-  // Save
+  // Save — applies changes to DOM then downloads updated index.html
   document.getElementById('admin-save').addEventListener('click',()=>{
-    // hero
+    // ── 1. Apply to live DOM ──
     document.getElementById('hero-eyebrow').textContent=document.getElementById('e-eyebrow').value;
     document.getElementById('hero-subtitle').textContent=document.getElementById('e-subtitle').value;
     document.getElementById('final-sub').textContent=document.getElementById('e-finalsub').value;
 
-    // letter — preserve line breaks
+    // letter
     const rawLetter=document.getElementById('e-letter').value;
     const lb=document.getElementById('letter-body');
     lb.innerHTML=rawLetter.split('\n\n').map(p=>p.trim()).filter(Boolean).join('<br><br>');
@@ -1243,30 +1243,78 @@ You mean everything to me.</textarea>
       ['e-tl2t','e-tl2b',2],['e-tl3t','e-tl3b',3]
     ];
     fields.forEach(([ti,bi,idx])=>{
-      const titles=document.querySelectorAll('[data-tl="'+idx+'-title"]');
-      const bodies=document.querySelectorAll('[data-tl="'+idx+'-body"]');
-      titles.forEach(el=>el.textContent=document.getElementById(ti).value);
-      bodies.forEach(el=>el.textContent=document.getElementById(bi).value);
+      document.querySelectorAll('[data-tl="'+idx+'-title"]').forEach(el=>el.textContent=document.getElementById(ti).value);
+      document.querySelectorAll('[data-tl="'+idx+'-body"]').forEach(el=>el.textContent=document.getElementById(bi).value);
     });
 
-    // captions
+    // captions & photos
     document.querySelectorAll('.cap-input').forEach(inp=>{
       window._carousel.captions[parseInt(inp.dataset.i)]=inp.value;
     });
-
-    // save photos & captions to localStorage
-    try{
-      // only save non-null to avoid quota on large images
-      const toSave=window._carousel.photos.map(p=>p||null);
-      localStorage.setItem('azu_photos',JSON.stringify(toSave));
-      localStorage.setItem('azu_captions',JSON.stringify(window._carousel.captions));
-    }catch(e){console.warn('Storage quota hit — images stored in memory only.');}
-
-    // rebuild carousel
     window._carousel.buildCarousel();
 
-    // close
+    // ── 2. Serialize the full page into a new HTML file ──
+    // Clone the document so we can bake photos into the carousel JS
+    const clone=document.documentElement.cloneNode(true);
+
+    // Remove the admin overlay from the saved file so it's clean
+    const adminOverlay=clone.querySelector('#admin-overlay');
+    if(adminOverlay)adminOverlay.remove();
+
+    // Bake photos array into the carousel script inside the clone:
+    // We inject a <script> right before </body> that pre-fills the photos/captions
+    // by overriding localStorage reads via a global variable the carousel checks first.
+    const photosJSON=JSON.stringify(window._carousel.photos.map(p=>p||null));
+    const captionsJSON=JSON.stringify(window._carousel.captions);
+
+    // Find the carousel script and patch it so photos/captions are hardcoded
+    // Strategy: inject an inline script tag that sets globals before the carousel runs
+    const injectScript=clone.ownerDocument.createElement('script');
+    injectScript.textContent=`window._BAKED_PHOTOS=${photosJSON};window._BAKED_CAPTIONS=${captionsJSON};`;
+
+    // Place inject script as very first script (before carousel reads localStorage)
+    const firstScript=clone.querySelector('script');
+    if(firstScript){firstScript.parentNode.insertBefore(injectScript,firstScript);}
+    else{clone.querySelector('body').prepend(injectScript);}
+
+    // Re-add the admin overlay (stripped above) — actually keep it so admin still works
+    // Revert: don't strip admin overlay
+    if(adminOverlay){
+      // re-attach to body in clone
+      clone.querySelector('body').appendChild(adminOverlay);
+    }
+
+    // ── 3. Patch carousel JS to use _BAKED_PHOTOS if present ──
+    // Find the script that has 'azu_photos' and patch the try{} block
+    const scripts=clone.querySelectorAll('script');
+    scripts.forEach(s=>{
+      if(s.textContent.includes('azu_photos')){
+        s.textContent=s.textContent.replace(
+          `try{\n    const sp=localStorage.getItem('azu_photos');\n    const sc=localStorage.getItem('azu_captions');\n    if(sp)photos=JSON.parse(sp);\n    if(sc)captions=JSON.parse(sc);\n  }catch(e){}`,
+          `try{\n    if(window._BAKED_PHOTOS)photos=window._BAKED_PHOTOS;\n    else{\n      const sp=localStorage.getItem('azu_photos');\n      if(sp)photos=JSON.parse(sp);\n    }\n    if(window._BAKED_CAPTIONS)captions=window._BAKED_CAPTIONS;\n    else{\n      const sc=localStorage.getItem('azu_captions');\n      if(sc)captions=JSON.parse(sc);\n    }\n  }catch(e){}`
+        );
+      }
+    });
+
+    // ── 4. Download ──
+    const html='<!DOCTYPE html>\n'+clone.outerHTML;
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='index.html';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+
     overlay.classList.remove('open');
+
+    // Show confirmation
+    const toast=document.createElement('div');
+    toast.textContent='✓ index.html downloaded — replace your file with this one';
+    toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:0.5px solid var(--rose);color:var(--text);font-family:Raleway,sans-serif;font-size:13px;padding:12px 24px;border-radius:4px;z-index:9999;white-space:nowrap;';
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(),4000);
   });
 
   // On load, restore captions from storage to admin fields lazily
