@@ -1216,17 +1216,29 @@ window.addEventListener('load',()=>setTimeout(loadFromSupabase,100));
         if(!e.target.classList.contains('slot-remove'))
           document.getElementById(`slot-file-${i}`).click();
       });
-      slot.querySelector(`#slot-file-${i}`).addEventListener('change',e=>{
+      slot.querySelector(`#slot-file-${i}`).addEventListener('change',async e=>{
         const f=e.target.files[0];if(!f)return;
-        const reader=new FileReader();
-        reader.onload=ev=>{
-          window._carousel.photos[i]=ev.target.result;
+        slot.style.opacity='0.5';
+        const SB_SERVICE='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmbWVvbG13dW95ZmFhaXp2a3lsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODgzMjgxNiwiZXhwIjoyMDk0NDA4ODE2fQ.03WjlMAvJ7NbJjqKUSeKauQ-WUQ9ZLyIjn3ePVks1nU';
+        const ext=f.name.split('.').pop();
+        const path=`photo_${i}_${Date.now()}.${ext}`;
+        try{
+          const up=await fetch(`${SB_URL}/storage/v1/object/photos/${path}`,{
+            method:'POST',
+            headers:{'apikey':SB_SERVICE,'Authorization':'Bearer '+SB_SERVICE,'Content-Type':f.type},
+            body:f
+          });
+          if(!up.ok)throw new Error(await up.text());
+          const publicUrl=`${SB_URL}/storage/v1/object/public/photos/${path}`;
+          window._carousel.photos[i]=publicUrl;
           slot.classList.add('has-img');
           let img=slot.querySelector('img');
           if(!img){img=document.createElement('img');slot.appendChild(img);}
-          img.src=ev.target.result;
-        };
-        reader.readAsDataURL(f);
+          img.src=publicUrl;
+        }catch(err){
+          alert('Photo upload failed: '+err.message);
+        }
+        slot.style.opacity='1';
       });
       const removeBtn=slot.querySelector('.slot-remove');
       removeBtn.addEventListener('click',e=>{
@@ -1299,7 +1311,7 @@ window.addEventListener('load',()=>setTimeout(loadFromSupabase,100));
     });
     window._carousel.buildCarousel();
 
-    // build data object
+    // build data object — photos are already public URLs from Storage
     const data={
       eyebrow:document.getElementById('e-eyebrow').value,
       subtitle:document.getElementById('e-subtitle').value,
@@ -1307,7 +1319,7 @@ window.addEventListener('load',()=>setTimeout(loadFromSupabase,100));
       letter:rawLetter,
       sig:document.getElementById('e-sig').value,
       tl:tlData,
-      photos:window._carousel.photos.map(p=>p||null),
+      photos:window._carousel.photos.map(p=>(p&&!p.startsWith('data:'))?p:null),
       captions:window._carousel.captions
     };
 
