@@ -957,12 +957,7 @@ You mean everything to me.</textarea>
   let progressStart=null;
   let paused=false;
 
-  try{
-    const sp=localStorage.getItem('azu_photos');
-    const sc=localStorage.getItem('azu_captions');
-    if(sp)photos=JSON.parse(sp);
-    if(sc)captions=JSON.parse(sc);
-  }catch(e){}
+  // photos/captions loaded from Supabase after DOM ready (see loadFromSupabase)
 
   const stage=document.getElementById('carouselStage');
   const dotsEl=document.getElementById('carDots');
@@ -1127,6 +1122,53 @@ You mean everything to me.</textarea>
   };
 })();
 
+// ── SUPABASE SYNC ──
+const SB_URL='https://ifmeolmwuoyfaaizvkyl.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmbWVvbG13dW95ZmFhaXp2a3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MzI4MTYsImV4cCI6MjA5NDQwODgxNn0.K-xT9gU1BgNMPQa00OgkqgBwfTMbDCgWPxn3pNZMVyI';
+const SB_HEADERS={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+async function loadFromSupabase(){
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/site_content?key=eq.data&select=value',{headers:SB_HEADERS});
+    const rows=await res.json();
+    if(!rows||!rows[0])return;
+    const d=JSON.parse(rows[0].value);
+
+    // texts
+    if(d.eyebrow)document.getElementById('hero-eyebrow').textContent=d.eyebrow;
+    if(d.subtitle)document.getElementById('hero-subtitle').textContent=d.subtitle;
+    if(d.finalsub)document.getElementById('final-sub').textContent=d.finalsub;
+    if(d.letter){
+      document.getElementById('letter-body').innerHTML=d.letter.split('\n\n').map(p=>p.trim()).filter(Boolean).join('<br><br>');
+    }
+    if(d.sig)document.getElementById('letter-sig').textContent=d.sig;
+    if(d.tl){
+      d.tl.forEach((item,idx)=>{
+        if(item.t)document.querySelectorAll('[data-tl="'+idx+'-title"]').forEach(el=>el.textContent=item.t);
+        if(item.b)document.querySelectorAll('[data-tl="'+idx+'-body"]').forEach(el=>el.textContent=item.b);
+      });
+    }
+
+    // photos + captions into carousel
+    if(d.photos)window._carousel.photos=d.photos.map(p=>p||null);
+    if(d.captions)window._carousel.captions=d.captions;
+    window._carousel.buildCarousel();
+  }catch(e){console.warn('Supabase load failed',e);}
+}
+
+async function saveToSupabase(data){
+  try{
+    await fetch(SB_URL+'/rest/v1/site_content?key=eq.data',{
+      method:'PATCH',
+      headers:{...SB_HEADERS,'Prefer':'return=minimal'},
+      body:JSON.stringify({value:JSON.stringify(data)})
+    });
+  }catch(e){console.warn('Supabase save failed',e);}
+}
+
+// Load on page start (after carousel is built)
+window.addEventListener('load',()=>setTimeout(loadFromSupabase,100));
+
 // ── ADMIN ──
 (function(){
   const PIN='9925';
@@ -1224,97 +1266,56 @@ You mean everything to me.</textarea>
     buildPhotoSlots();
   }
 
-  // Save — applies changes to DOM then downloads updated index.html
-  document.getElementById('admin-save').addEventListener('click',()=>{
-    // ── 1. Apply to live DOM ──
+  // Save → Supabase
+  document.getElementById('admin-save').addEventListener('click',async()=>{
+    const btn=document.getElementById('admin-save');
+    btn.textContent='Saving…';btn.disabled=true;
+
+    // apply to DOM
     document.getElementById('hero-eyebrow').textContent=document.getElementById('e-eyebrow').value;
     document.getElementById('hero-subtitle').textContent=document.getElementById('e-subtitle').value;
     document.getElementById('final-sub').textContent=document.getElementById('e-finalsub').value;
 
-    // letter
     const rawLetter=document.getElementById('e-letter').value;
     const lb=document.getElementById('letter-body');
     lb.innerHTML=rawLetter.split('\n\n').map(p=>p.trim()).filter(Boolean).join('<br><br>');
     document.getElementById('letter-sig').textContent=document.getElementById('e-sig').value;
 
-    // timeline
-    const fields=[
+    const tlFields=[
       ['e-tl0t','e-tl0b',0],['e-tl1t','e-tl1b',1],
       ['e-tl2t','e-tl2b',2],['e-tl3t','e-tl3b',3]
     ];
-    fields.forEach(([ti,bi,idx])=>{
-      document.querySelectorAll('[data-tl="'+idx+'-title"]').forEach(el=>el.textContent=document.getElementById(ti).value);
-      document.querySelectorAll('[data-tl="'+idx+'-body"]').forEach(el=>el.textContent=document.getElementById(bi).value);
+    const tlData=[];
+    tlFields.forEach(([ti,bi,idx])=>{
+      const tv=document.getElementById(ti).value;
+      const bv=document.getElementById(bi).value;
+      document.querySelectorAll('[data-tl="'+idx+'-title"]').forEach(el=>el.textContent=tv);
+      document.querySelectorAll('[data-tl="'+idx+'-body"]').forEach(el=>el.textContent=bv);
+      tlData[idx]={t:tv,b:bv};
     });
 
-    // captions & photos
     document.querySelectorAll('.cap-input').forEach(inp=>{
       window._carousel.captions[parseInt(inp.dataset.i)]=inp.value;
     });
     window._carousel.buildCarousel();
 
-    // ── 2. Serialize the full page into a new HTML file ──
-    // Clone the document so we can bake photos into the carousel JS
-    const clone=document.documentElement.cloneNode(true);
+    // build data object
+    const data={
+      eyebrow:document.getElementById('e-eyebrow').value,
+      subtitle:document.getElementById('e-subtitle').value,
+      finalsub:document.getElementById('e-finalsub').value,
+      letter:rawLetter,
+      sig:document.getElementById('e-sig').value,
+      tl:tlData,
+      photos:window._carousel.photos.map(p=>p||null),
+      captions:window._carousel.captions
+    };
 
-    // Remove the admin overlay from the saved file so it's clean
-    const adminOverlay=clone.querySelector('#admin-overlay');
-    if(adminOverlay)adminOverlay.remove();
+    await saveToSupabase(data);
 
-    // Bake photos array into the carousel script inside the clone:
-    // We inject a <script> right before </body> that pre-fills the photos/captions
-    // by overriding localStorage reads via a global variable the carousel checks first.
-    const photosJSON=JSON.stringify(window._carousel.photos.map(p=>p||null));
-    const captionsJSON=JSON.stringify(window._carousel.captions);
-
-    // Find the carousel script and patch it so photos/captions are hardcoded
-    // Strategy: inject an inline script tag that sets globals before the carousel runs
-    const injectScript=clone.ownerDocument.createElement('script');
-    injectScript.textContent=`window._BAKED_PHOTOS=${photosJSON};window._BAKED_CAPTIONS=${captionsJSON};`;
-
-    // Place inject script as very first script (before carousel reads localStorage)
-    const firstScript=clone.querySelector('script');
-    if(firstScript){firstScript.parentNode.insertBefore(injectScript,firstScript);}
-    else{clone.querySelector('body').prepend(injectScript);}
-
-    // Re-add the admin overlay (stripped above) — actually keep it so admin still works
-    // Revert: don't strip admin overlay
-    if(adminOverlay){
-      // re-attach to body in clone
-      clone.querySelector('body').appendChild(adminOverlay);
-    }
-
-    // ── 3. Patch carousel JS to use _BAKED_PHOTOS if present ──
-    // Find the script that has 'azu_photos' and patch the try{} block
-    const scripts=clone.querySelectorAll('script');
-    scripts.forEach(s=>{
-      if(s.textContent.includes('azu_photos')){
-        s.textContent=s.textContent.replace(
-          `try{\n    const sp=localStorage.getItem('azu_photos');\n    const sc=localStorage.getItem('azu_captions');\n    if(sp)photos=JSON.parse(sp);\n    if(sc)captions=JSON.parse(sc);\n  }catch(e){}`,
-          `try{\n    if(window._BAKED_PHOTOS)photos=window._BAKED_PHOTOS;\n    else{\n      const sp=localStorage.getItem('azu_photos');\n      if(sp)photos=JSON.parse(sp);\n    }\n    if(window._BAKED_CAPTIONS)captions=window._BAKED_CAPTIONS;\n    else{\n      const sc=localStorage.getItem('azu_captions');\n      if(sc)captions=JSON.parse(sc);\n    }\n  }catch(e){}`
-        );
-      }
-    });
-
-    // ── 4. Download ──
-    const html='<!DOCTYPE html>\n'+clone.outerHTML;
-    const blob=new Blob([html],{type:'text/html'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download='index.html';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-
+    btn.textContent='✓ Saved!';
+    setTimeout(()=>{btn.textContent='Save All Changes';btn.disabled=false;},2000);
     overlay.classList.remove('open');
-
-    // Show confirmation
-    const toast=document.createElement('div');
-    toast.textContent='✓ index.html downloaded — replace your file with this one';
-    toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:0.5px solid var(--rose);color:var(--text);font-family:Raleway,sans-serif;font-size:13px;padding:12px 24px;border-radius:4px;z-index:9999;white-space:nowrap;';
-    document.body.appendChild(toast);
-    setTimeout(()=>toast.remove(),4000);
   });
 
   // On load, restore captions from storage to admin fields lazily
