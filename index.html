@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Ayaan & Azoo — 1 Month</title>
+<title>Ayaan & Azu — 1 Month</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Cinzel:wght@400;500&family=Raleway:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -629,7 +629,7 @@ footer{
     <h1 class="hero-names">
       <em id="name1">Ayaan</em>
       <span class="hero-amp">&amp;</span>
-      <span id="name2">Azoo</span>
+      <span id="name2">Azu</span>
     </h1>
     <p class="hero-sub" id="hero-subtitle">one month of something i never want to end</p>
     <p class="hero-date">19 · May · 2026</p>
@@ -655,7 +655,7 @@ footer{
 <!-- ═══ LETTER ═══ -->
 <section id="letter" class="sec">
   <p class="sec-label reveal">A Letter</p>
-  <h2 class="sec-title reveal">To My <em>Azoo</em></h2>
+  <h2 class="sec-title reveal">To My <em>Azu</em></h2>
   <div class="divider reveal"></div>
   <div class="letter-card reveal">
     <p class="letter-body" id="letter-body">
@@ -713,7 +713,7 @@ footer{
         <span class="tl-emoji">💗</span>
         <p class="tl-month">May 19, 2026 · One Month</p>
         <h3 class="tl-h" data-tl="3-title">One Month With You</h3>
-        <p class="tl-p" data-tl="3-body">Thirty days. Each one better than the last. I don't know what the future holds, but I know I want you in it. Happy one month, Azoo... here's to all the months that come next.</p>
+        <p class="tl-p" data-tl="3-body">Thirty days. Each one better than the last. I don't know what the future holds, but I know I want you in it. Happy one month, Azu... here's to all the months that come next.</p>
       </div>
     </div>
 
@@ -769,11 +769,11 @@ footer{
 <section id="final" style="max-width:100%;">
   <span class="heart-big">💗</span>
   <h2 class="final-title">Happy <em>1 Month</em></h2>
-  <p class="final-sub" id="final-sub">Azoo — you make every day worth it</p>
+  <p class="final-sub" id="final-sub">Azu — you make every day worth it</p>
   <div class="date-badge">19 · May · 2026</div>
 </section>
 
-<footer>Made with love by Ayaan · For Azoo · May 2026</footer>
+<footer>Made with love by Ayaan · For Azu · May 2026</footer>
 
 <!-- ═══ ADMIN OVERLAY ═══ -->
 <div id="admin-overlay">
@@ -808,7 +808,7 @@ footer{
         </div>
         <div class="admin-field">
           <label>Final Section Line</label>
-          <input type="text" id="e-finalsub" value="Azoo — you make every day worth it">
+          <input type="text" id="e-finalsub" value="Azu — you make every day worth it">
         </div>
       </div>
 
@@ -818,7 +818,7 @@ footer{
           <label>Letter Body</label>
           <textarea id="e-letter" rows="8">I didn't know one month could feel like this — like I've known you forever and at the same time, every day I discover something new about you that makes me fall a little more.
 
-You make the ordinary feel special, Azoo. A regular day becomes the best day when it has you in it. I love the way you laugh, the way you think, the way you make me want to be better just by being you.
+You make the ordinary feel special, Azu. A regular day becomes the best day when it has you in it. I love the way you laugh, the way you think, the way you make me want to be better just by being you.
 
 Thank you for choosing me. Thank you for every message, every moment, every laugh we've shared. This is just the beginning, and I can't wait to see where we go from here.
 
@@ -958,8 +958,8 @@ You mean everything to me.</textarea>
   let paused=false;
 
   try{
-    const sp=localStorage.getItem('azoo_photos');
-    const sc=localStorage.getItem('azoo_captions');
+    const sp=localStorage.getItem('azu_photos');
+    const sc=localStorage.getItem('azu_captions');
     if(sp)photos=JSON.parse(sp);
     if(sc)captions=JSON.parse(sc);
   }catch(e){}
@@ -1258,8 +1258,8 @@ You mean everything to me.</textarea>
     try{
       // only save non-null to avoid quota on large images
       const toSave=window._carousel.photos.map(p=>p||null);
-      localStorage.setItem('azoo_photos',JSON.stringify(toSave));
-      localStorage.setItem('azoo_captions',JSON.stringify(window._carousel.captions));
+      localStorage.setItem('azu_photos',JSON.stringify(toSave));
+      localStorage.setItem('azu_captions',JSON.stringify(window._carousel.captions));
     }catch(e){console.warn('Storage quota hit — images stored in memory only.');}
 
     // rebuild carousel
